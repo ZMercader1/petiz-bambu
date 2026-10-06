@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0b1210">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Petiz">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preload" href="fonts/cormorant.woff2" as="font" type="font/woff2" crossorigin>
+<title>PETIZ BAMBU</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<main id="view"></main>
+<nav id="tabs">
+  <button data-tab="home" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15.5 4.2A8.5 8.5 0 1 0 20.3 9"/></svg>Sesiones</button>
+  <button data-tab="lib"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2"/></svg>Sonidos</button>
+  <button data-tab="diary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="2.5"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>Diario</button>
+</nav>
+<div id="sheet" class="sheet" hidden></div>
+<div id="player" hidden></div>
+<div id="toast"></div>
+<input type="file" id="file-in" accept="audio/*,.mp3,.m4a,.wav,.aac" multiple hidden>
+<input type="file" id="json-in" accept="application/json,.json" hidden>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
