@@ -237,7 +237,7 @@ export const TONE_BUILDERS = {
 export const TONE_SEND = { jardin: 0.9, pad: 0.6, cuencos: 0.55, om: 0.35, cristal: 0.9, theta: 0, marron: 0 };
 
 // ---------- Gongs (renderizados una vez a buffer) ----------
-export const GONG_SPACING = { cuenco: 7, rin: 4.5, grave: 9, koshi: 6 };
+export const GONG_SPACING = { cuenco: 7, rin: 4.5, grave: 9 };
 
 function partial(oc, out, f, amp, t60, at, o = {}) {
   const beat = o.beat || 0, pan = o.pan || 0, attack = o.attack || 0.004;
@@ -298,23 +298,10 @@ const GONG_BUILDERS = {
     noiseHit(oc, out, 0, 600, 1, 0.14, 0.02);
     return 34;
   },
-  koshi(oc, out) {
-    const r = rng(9);
-    const fs = [587.33, 659.26, 783.99, 880, 987.77];
-    let t = 0;
-    for (let h = 0; h < 9; h++) {
-      const f = fs[Math.floor(r() * fs.length)], v = 0.35 + r() * 0.65, pan = r() * 1.4 - 0.7;
-      [[1, 1, 6, 0.3], [2.76, 0.18, 2.2, 0.8], [5.4, 0.06, 0.8, 0]]
-        .forEach(([ra, a, t60, b]) => partial(oc, out, f * ra, a * v, t60, t, { beat: b, pan, attack: 0.002 }));
-      noiseHit(oc, out, t, 5200, 3, 0.05 * v, 0.004);
-      t += 0.12 + r() * 0.5;
-    }
-    return 12;
-  },
 };
 
 export async function renderGong(type, sr) {
-  const lengths = { cuenco: 30, rin: 15, grave: 34, koshi: 12 };
+  const lengths = { cuenco: 30, rin: 15, grave: 34 };
   const oc = new OfflineAudioContext(2, Math.floor(sr * lengths[type]), sr);
   const out = oc.createGain(); out.connect(oc.destination);
   GONG_BUILDERS[type](oc, out);

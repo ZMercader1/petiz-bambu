@@ -1,5 +1,5 @@
 // Service worker: todo funciona sin conexión.
-const V = 'petiz-v1';
+const V = 'petiz-v2';
 const SHELL = ['./', 'index.html', 'styles.css', 'manifest.webmanifest',
   'js/app.js', 'js/engine.js', 'js/synth.js', 'js/catalog.js', 'js/store.js',
   'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png',

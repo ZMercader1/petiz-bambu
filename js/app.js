@@ -28,7 +28,7 @@ const I = {
   mic: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>',
   file: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M7.5 8.5 12 4l4.5 4.5M5 15v3.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V15"/></svg>',
 };
-const ENSO = `<svg class="enso" viewBox="0 0 100 100"><defs><linearGradient id="eg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3a342b"/><stop offset="1" stop-color="#1e1b16"/></linearGradient></defs><path d="M63 13.5A37 37 0 1 0 86.5 42" fill="none" stroke="url(#eg)" stroke-width="8" stroke-linecap="round"/><path d="M63 13.5A37 37 0 1 0 86.5 42" fill="none" stroke="#f2ebde" stroke-width="1.1" stroke-dasharray="1.5 7" stroke-linecap="round" opacity=".55" transform="translate(1.4 0.8)"/></svg>`;
+const ENSO = `<svg class="enso" viewBox="0 0 100 100"><defs><linearGradient id="eg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f3ead8"/><stop offset="1" stop-color="#c9bda5"/></linearGradient></defs><path d="M63 13.5A37 37 0 1 0 86.5 42" fill="none" stroke="url(#eg)" stroke-width="8" stroke-linecap="round"/><path d="M63 13.5A37 37 0 1 0 86.5 42" fill="none" stroke="#1c1a16" stroke-width="1.1" stroke-dasharray="1.5 7" stroke-linecap="round" opacity=".55" transform="translate(1.4 0.8)"/></svg>`;
 
 // ---------- Datos ----------
 const G = (type, strikes = 1, vol = 80) => ({ type, strikes, vol });
@@ -55,7 +55,7 @@ function defaultSessions() {
     {
       id: uid('s_'), name: 'Pausa de 10', prep: 3, fadeIn: 15, tail: 25, master: 90,
       phases: [P_('Meditación', 10, [['olas', 50], ['cristal', 20]], { trans: 0 })],
-      gongs: { start: G('koshi', 1, 70), end: G('rin', 3, 75), extra: [{ at: 300, type: 'koshi', strikes: 1, vol: 45 }] },
+      gongs: { start: G('rin', 1, 70), end: G('rin', 3, 75), extra: [{ at: 300, type: 'rin', strikes: 1, vol: 45 }] },
     },
     {
       id: uid('s_'), name: 'Tren nocturno', prep: 5, fadeIn: 30, tail: 35, master: 90,
@@ -93,7 +93,7 @@ const saveSessions = () => LS.set('sessions', state.sessions);
 // Ajusta sesiones antiguas: sin «Gong profundo» y con nombres claros
 (function migrate() {
   const ren = { Llegar: 'Relajación', Viaje: 'Relajación', Llegada: 'Meditación', Respirar: 'Meditación' };
-  const fixG = g => { if (g && g.type === 'gong') g.type = 'grave'; };
+  const fixG = g => { if (g && g.type === 'gong') g.type = 'grave'; if (g && g.type === 'koshi') g.type = 'rin'; };
   state.sessions.forEach(s => {
     s.gongs ||= {}; s.gongs.extra ||= [];
     fixG(s.gongs.start); fixG(s.gongs.end); s.gongs.extra.forEach(fixG);
@@ -783,7 +783,7 @@ document.addEventListener('click', async e => {
     case 'ex-add': d.gongs.extra.push({ at: Math.round(plan(d).D / 2 / 15) * 15, type: 'rin', strikes: 1, vol: 70 }); render(); break;
     case 'ex-del': d.gongs.extra.splice(+el.dataset.k, 1); render(); break;
     case 'ex-repeat':
-      $('#repeat-box').innerHTML = `<div class="repeat-box">Un gong cada <span class="time-in"><input id="rp-n" inputmode="numeric" value="5"></span> min de <select id="rp-t">${gongOptions('koshi')}</select><button class="btn sm gold" data-act="ex-repeat-go">Crear</button></div>`;
+      $('#repeat-box').innerHTML = `<div class="repeat-box">Un gong cada <span class="time-in"><input id="rp-n" inputmode="numeric" value="5"></span> min de <select id="rp-t">${gongOptions('rin')}</select><button class="btn sm gold" data-act="ex-repeat-go">Crear</button></div>`;
       break;
     case 'ex-repeat-go': {
       const n = +$('#rp-n').value, type = $('#rp-t').value, D = plan(d).D;

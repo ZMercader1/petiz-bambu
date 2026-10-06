@@ -30,7 +30,6 @@ export const GONGS = [
   { id: 'cuenco', name: 'Cuenco tibetano', color: '#c99a4b' },
   { id: 'grave', name: 'Cuenco grave', color: '#a8774a' },
   { id: 'rin', name: 'Campana zen', color: '#a3abb2' },
-  { id: 'koshi', name: 'Carillón Koshi', color: '#86a68b' },
 ];
 
 // Pigmentos naturales para los tramos (musgo, añil, ocre, ciruela, celadón, terracota)
