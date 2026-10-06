@@ -588,8 +588,8 @@ async function startSession(s) {
       <div class="pl-bottom"><button class="pl-btn" data-act="pl-pause" id="pl-pp" aria-label="Pausa">${I.pause}</button></div>
       <p class="pl-tip">Puedes bloquear el móvil y el sonido sigue. La luna pone la pantalla en negro sin bloquearla.</p>
     </div>
-    <div class="pl-layer" id="pl-load"><p class="kicker">Un momento</p><h2 id="pl-load-t">Preparando…</h2></div>
-    <div class="pl-layer" id="pl-prep" hidden><p class="kicker">Siéntate cómodo</p><div class="prep-n" id="pl-prep-n"></div><p>Respira hondo</p></div>
+    <div class="pl-layer" id="pl-load"><p class="kicker">Un momento</p><h2 id="pl-load-t">Preparando…</h2><button class="pl-cancel" data-act="pl-cancel">Cancelar</button></div>
+    <div class="pl-layer" id="pl-prep" hidden><p class="kicker">Siéntate cómodo</p><div class="prep-n" id="pl-prep-n"></div><p>Respira hondo</p><button class="pl-cancel" data-act="pl-cancel">Cancelar</button></div>
     <div class="pl-layer" id="pl-confirm" hidden><h2>¿Terminar ya?</h2><p id="pl-confirm-t"></p><div class="btns"><button class="btn" data-act="pl-no">Seguir</button><button class="btn gold" data-act="pl-yes">Terminar</button></div></div>
     <div class="pl-layer" id="pl-int" hidden><h2>En pausa</h2><p>El sistema ha parado el sonido (una llamada, otra app…).</p><div class="btns"><button class="btn gold" data-act="pl-resume">Continuar</button></div></div>
     <div class="pl-layer" id="pl-done" hidden><p class="kicker">Sesión completada</p><h2>${Math.round(P.D / 60)} ${Math.round(P.D / 60) === 1 ? "minuto" : "minutos"}</h2><p>¿Cómo te sientes?</p>
@@ -848,6 +848,7 @@ document.addEventListener('click', async e => {
       $('#pl-confirm').hidden = false; break;
     }
     case 'pl-no': $('#pl-confirm').hidden = true; break;
+    case 'pl-cancel': E.stop(true); closePlayer(); break;
     case 'pl-yes': {
       const st = E.status();
       if (st && st.elapsed >= 60) record(Math.min(st.elapsed, PL.P.D), false);

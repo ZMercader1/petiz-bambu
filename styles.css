@@ -318,3 +318,5 @@ input[type=range]:focus { outline: none; }
 /* Sensación de app: sin selección de texto ni menú de mantener pulsado */
 body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 input, textarea { -webkit-user-select: text; user-select: text; }
+
+.pl-cancel { margin-top: 42px; height: 34px; padding: 0 18px; border-radius: 17px; border: 1px solid rgba(239, 230, 212, .18); color: #a39a89; font-size: 13px; font-weight: 700; }
