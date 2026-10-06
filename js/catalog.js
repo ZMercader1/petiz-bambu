@@ -17,7 +17,7 @@ export const NATURE = [
 ].map(s => ({ ...s, kind: 'nature', file: `sounds/${s.id}.m4a` }));
 
 export const TONES = [
-  { id: 'jardin', name: 'Jardín zen', desc: 'Notas de koto sueltas, generativas', art: g('#20302a', '#6f9a7e', '#f0e2b0') },
+  { id: 'jardin', name: 'Jardín zen', desc: 'Handpan generativo, nunca se repite', art: g('#20302a', '#6f9a7e', '#f0e2b0') },
   { id: 'cuencos', name: 'Cuencos cantores', desc: 'Drone de cuencos tibetanos', art: g('#2e2414', '#a07a3a', '#f3d58a') },
   { id: 'pad', name: 'Pad cálido', desc: 'Acorde suave que respira', art: g('#2a1f30', '#7a5a8a', '#e6b8c8') },
   { id: 'om', name: 'Om suave', desc: 'Drone vocal cálido', art: g('#1f1418', '#6e3a3a', '#d89a7a') },
@@ -25,6 +25,15 @@ export const TONES = [
   { id: 'theta', name: 'Ondas theta', desc: 'Binaural 6 Hz · con auriculares', art: g('#141828', '#4a4f8a', '#b8b0f0') },
   { id: 'marron', name: 'Ruido marrón', desc: 'Manta de ruido grave', art: g('#1e1a16', '#5a4a3a', '#a08a70') },
 ].map(s => ({ ...s, kind: 'tone' }));
+
+// Música grabada (CC0). Larga: se reproduce en streaming, no se carga entera en memoria.
+export const MUSIC = [
+  { id: 'm-meditacion', name: 'Meditación sanadora', desc: 'Cuencos y pads envolventes', fs: 795401, art: g('#2a2236', '#8a6aa0', '#f0d0a8') },
+  { id: 'm-handpan', name: 'Handpan y pájaros', desc: '9 min · grabado al aire libre', fs: 618350, art: g('#1f3024', '#7a9a62', '#f2e2a0') },
+  { id: 'm-errante', name: 'Errante', desc: 'Ambient profundo', fs: 455855, art: g('#162232', '#4a6a9a', '#c8d8f0') },
+  { id: 'm-dunas', name: 'Dunas', desc: 'Ambient cálido', fs: 447511, art: g('#3a2618', '#b0784a', '#f6d29a') },
+  { id: 'm-piano', name: 'Piano de tarde', desc: 'Piano ambient suave', fs: 418442, art: g('#24201c', '#7a6a5a', '#efe2cc') },
+].map(s => ({ ...s, kind: 'music', file: `sounds/music/${s.id}.m4a` }));
 
 export const GONGS = [
   { id: 'cuenco', name: 'Cuenco tibetano', color: '#c99a4b' },

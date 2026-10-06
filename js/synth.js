@@ -78,73 +78,85 @@ function osc(ctx, type, freq, dest, t0, t1, reg, detune = 0) {
   return o;
 }
 
-// ---------- Cuerda pulsada (Karplus-Strong), timbre tipo koto/kalimba ----------
-function ksPluck(sr, freq, dur, bright, seed) {
+// ---------- Notas tipo handpan (síntesis aditiva renderizada una vez) ----------
+// Escala «Amara» (celta menor) en Re: dulce, abierta, muy meditativa.
+const GARDEN_MEL = [293.66, 329.63, 349.23, 392, 440, 523.25, 587.33, 659.26];
+const GARDEN_BASS = [146.83, 220];
+let gardenCache = null;
+
+async function renderPan(sr, f, dur, seed) {
   const r = rng(seed);
-  const N = Math.floor(sr * dur), p = Math.max(2, Math.round(sr / freq));
-  const line = new Float32Array(p), out = new Float32Array(N);
-  let lp = 0;
-  for (let i = 0; i < p; i++) { lp += bright * ((r() * 2 - 1) - lp); line[i] = lp; }
-  const loss = Math.pow(0.0012, 1 / (dur * sr / p)) ; // ~-58 dB al final
-  let idx = 0, body = 0, peak = 0;
-  for (let n = 0; n < N; n++) {
-    const a = line[idx], b = line[(idx + 1) % p];
-    const v = (a * 0.55 + b * 0.45) * loss;
-    line[idx] = v; idx = (idx + 1) % p;
-    body += 0.35 * (a - body);
-    const att = n < sr * 0.003 ? n / (sr * 0.003) : 1;
-    out[n] = (a * 0.6 + body * 0.4) * att;
-    peak = Math.max(peak, Math.abs(out[n]));
-  }
-  for (let n = 0; n < N; n++) out[n] /= peak || 1;
-  return { data: out, rate: freq / (sr / p) };
+  const oc = new OfflineAudioContext(1, Math.floor(sr * dur), sr);
+  const out = oc.createGain(); out.connect(oc.destination);
+  // tono fundamental, octava y quinta sobre la octava: los armónicos afinados de un handpan
+  [[1, 1, dur * 0.95], [2, 0.42, dur * 0.55], [3, 0.16, dur * 0.3], [4.02, 0.05, dur * 0.15]].forEach(([ratio, a, t60], k) => {
+    for (const det of [0, 0.35 + r() * 0.4]) {
+      const o = oc.createOscillator(); o.frequency.value = f * ratio + det;
+      const g = oc.createGain();
+      g.gain.setValueAtTime(0, 0);
+      g.gain.linearRampToValueAtTime(a * 0.5, 0.006 + k * 0.004);
+      g.gain.setTargetAtTime(0, 0.01, t60 / 6.91);
+      o.connect(g).connect(out); o.start(0); o.stop(dur);
+    }
+  });
+  // golpe suave del dedo
+  const n = oc.createBufferSource(); n.buffer = noiseBuffer(oc, 0.2, 'white', 1);
+  const lp = oc.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = Math.min(1800, f * 3);
+  const ng = oc.createGain(); ng.gain.setValueAtTime(0.12, 0); ng.gain.setTargetAtTime(0, 0.002, 0.012);
+  n.connect(lp).connect(ng).connect(out); n.start(0);
+  const b = await oc.startRendering();
+  const d = b.getChannelData(0); let pk = 0;
+  for (let k = 0; k < d.length; k++) pk = Math.max(pk, Math.abs(d[k]));
+  for (let k = 0; k < d.length; k++) d[k] /= pk || 1;
+  return b;
 }
 
-const GARDEN_MEL = [293.66, 329.63, 392, 440, 493.88, 587.33, 659.26, 783.99, 880];
-const GARDEN_BASS = [146.83, 196, 220];
-let gardenCache = null;
-function gardenSamples(ctx) {
-  if (gardenCache && gardenCache.sr === ctx.sampleRate) return gardenCache;
-  const sr = ctx.sampleRate;
-  const mk = (f, i, dur, bright) => {
-    const { data, rate } = ksPluck(sr, f, dur, bright, 100 + i);
-    const b = ctx.createBuffer(1, data.length, sr); b.copyToChannel(data, 0);
-    return { buf: b, rate };
-  };
-  gardenCache = {
-    sr,
-    mel: GARDEN_MEL.map((f, i) => mk(f, i, 4.5, 0.42)),
-    bass: GARDEN_BASS.map((f, i) => mk(f, i + 50, 7, 0.3)),
-  };
+async function gardenSamples(sr) {
+  if (gardenCache && gardenCache.sr === sr) return gardenCache;
+  const mel = await Promise.all(GARDEN_MEL.map((f, i) => renderPan(sr, f, 5.5, 10 + i)));
+  const bass = await Promise.all(GARDEN_BASS.map((f, i) => renderPan(sr, f, 8, 40 + i)));
+  gardenCache = { sr, mel, bass };
   return gardenCache;
+}
+
+// Algunos tonos necesitan preparar muestras antes de sonar.
+export async function prepareTone(id, ctx) {
+  if (id === 'jardin') await gardenSamples(ctx.sampleRate);
 }
 
 // ---------- Tonos ----------
 // Cada tono: (ctx, dest, t0, t1, reg) -> conecta a dest y registra los nodos en reg.
 export const TONE_BUILDERS = {
   jardin(ctx, dest, t0, t1, reg) {
-    const S = gardenSamples(ctx);
+    const S = gardenCache;
+    if (!S) return;
     const r = rng((Math.random() * 1e9) | 0);
-    const out = ctx.createGain(); out.gain.value = 1.3; out.connect(dest);
-    const note = (smp, t, vel, pan) => {
-      const s = ctx.createBufferSource(); s.buffer = smp.buf; s.playbackRate.value = smp.rate;
+    const out = ctx.createGain(); out.gain.value = 0.6; out.connect(dest);
+    // cama muy suave de Re y La para que las notas no floten en el vacío
+    const bed = ctx.createGain(); bed.gain.value = 0.035; bed.connect(out);
+    lfo(ctx, bed.gain, 0.03, 0.015, t0, t1, reg);
+    osc(ctx, 'sine', 73.42, bed, t0, t1, reg);
+    osc(ctx, 'sine', 110, bed, t0, t1, reg, 3);
+    osc(ctx, 'sine', 146.83, bed, t0, t1, reg, -2);
+    const note = (buf, t, vel, pan) => {
+      const s = ctx.createBufferSource(); s.buffer = buf;
       const g = ctx.createGain(); g.gain.value = vel;
       const p = ctx.createStereoPanner(); p.pan.value = pan;
       s.connect(g).connect(p).connect(out);
       s.start(t); reg.push(s);
     };
-    let t = t0 + 1.5 + r() * 3, idx = 4;
-    const steps = [-2, -1, -1, 1, 1, 2, 0, -3, 3];
-    while (t < t1 - 3) {
-      const phrase = 1 + Math.floor(r() * 4);
-      for (let k = 0; k < phrase && t < t1 - 3; k++) {
+    let t = t0 + 2 + r() * 2, idx = 3;
+    const steps = [-1, -1, 1, 1, -2, 2, 0];
+    while (t < t1 - 4) {
+      if (r() < 0.55) note(S.bass[r() < 0.7 ? 0 : 1], t, 0.55, 0);
+      const phrase = 2 + Math.floor(r() * 4);
+      for (let k = 0; k < phrase && t < t1 - 4; k++) {
         idx = Math.max(0, Math.min(GARDEN_MEL.length - 1, idx + steps[Math.floor(r() * steps.length)]));
-        note(S.mel[idx], t, 0.35 + r() * 0.4, r() * 1.2 - 0.6);
-        if (r() < 0.12) note(S.mel[Math.min(GARDEN_MEL.length - 1, idx + 2)], t + 0.02, 0.2, r() - 0.5);
-        t += 0.5 + r() * 1.2;
+        note(S.mel[idx], t, 0.3 + r() * 0.35, r() * 1.0 - 0.5);
+        if (r() < 0.15) note(S.mel[Math.max(0, idx - 2)], t + 0.03, 0.18, r() - 0.5);
+        t += 0.9 + r() * 1.6;
       }
-      if (r() < 0.35) note(S.bass[Math.floor(r() * S.bass.length)], t - 0.3, 0.5, 0);
-      t += 4.5 + r() * 8;
+      t += 3.5 + r() * 6;
     }
   },
 
@@ -234,7 +246,7 @@ export const TONE_BUILDERS = {
 };
 
 // Nivel de cada tono y cuánto va a la reverb
-export const TONE_SEND = { jardin: 0.9, pad: 0.6, cuencos: 0.55, om: 0.35, cristal: 0.9, theta: 0, marron: 0 };
+export const TONE_SEND = { jardin: 0.75, pad: 0.6, cuencos: 0.55, om: 0.35, cristal: 0.9, theta: 0, marron: 0 };
 
 // ---------- Gongs (renderizados una vez a buffer) ----------
 export const GONG_SPACING = { cuenco: 7, rin: 4.5, grave: 9 };

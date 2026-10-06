@@ -1,5 +1,6 @@
 // Motor de audio: mezcla capas, automatiza volúmenes por tramos y programa gongs.
-import { makeReverbIR, makeLoop, TONE_BUILDERS, TONE_SEND, renderGong, GONG_SPACING, silentWavURL } from './synth.js';
+import { makeReverbIR, makeLoop, TONE_BUILDERS, TONE_SEND, renderGong, GONG_SPACING, silentWavURL, prepareTone } from './synth.js';
+import { MUSIC } from './catalog.js';
 import { userSounds } from './store.js';
 
 const LONG = 300;          // audios propios más largos que esto se reproducen en streaming
@@ -83,13 +84,23 @@ export class Engine {
       const gs = ctx.createGain(); gs.gain.value = 0.08;
       this.gongBus.connect(gs).connect(this.reverb);
       this.previewBus = ctx.createGain(); this.previewBus.connect(this.mk);
-      this.keep = new Audio(silentWavURL());
+      this.silent = silentWavURL();
+      this.keep = new Audio(this.silent);
       this.keep.loop = true;
       this.keep.setAttribute('playsinline', '');
       ctx.onstatechange = () => this.onstate && this.onstate(ctx.state);
     }
     if (this.ctx.state !== 'running') this.ctx.resume().catch(() => { });
     this.holdAudio(true);
+    // iOS solo deja sonar elementos <audio> «bendecidos» por un toque: preparo unos cuantos
+    if (!this.pool) {
+      this.pool = [];
+      for (let k = 0; k < 4; k++) {
+        const el = new Audio(this.silent); el.setAttribute('playsinline', ''); el.loop = true;
+        el.play().then(() => el.pause()).catch(() => { });
+        this.pool.push(el);
+      }
+    }
     return this.ctx;
   }
 
@@ -100,6 +111,30 @@ export class Engine {
   }
 
   isLongUser(id) { const u = this.userMeta.get(id); return !!u && u.duration > LONG; }
+  isStream(id) { return this.isLongUser(id) || MUSIC.some(m => m.id === id); }
+
+  mediaEl() {
+    const el = (this.pool && this.pool.pop()) || Object.assign(new Audio(), { loop: true });
+    el.setAttribute('playsinline', '');
+    if (!el._node) el._node = this.ctx.createMediaElementSource(el);
+    return el;
+  }
+
+  releaseEl(el) {
+    el.pause();
+    try { el._node.disconnect(); } catch { }
+    if (el._url) { URL.revokeObjectURL(el._url); el._url = null; }
+    el.src = this.silent;
+    (this.pool ||= []).push(el);
+  }
+
+  async streamBlob(id) {
+    if (id.startsWith('u_')) return (await userSounds.get(id)).blob;
+    const m = MUSIC.find(x => x.id === id);
+    const r = await fetch(m.file);
+    if (!r.ok) throw new Error('No se pudo cargar ' + id);
+    return await r.blob();
+  }
 
   async decode(id) {
     let arr;
@@ -152,17 +187,19 @@ export class Engine {
     const g = ctx.createGain(); g.gain.value = 0; g.connect(bus);
     const tone = TONE_BUILDERS[id];
     if (tone) {
+      await prepareTone(id, ctx);
       tone(ctx, g, t0, t1, reg);
       if (TONE_SEND[id]) { const sg = ctx.createGain(); sg.gain.value = TONE_SEND[id]; g.connect(sg).connect(this.reverb); }
       return { gain: g };
     }
-    if (this.isLongUser(id)) {
-      const rec = await userSounds.get(id);
-      const url = URL.createObjectURL(rec.blob);
-      const el = new Audio(url); el.loop = true; el.setAttribute('playsinline', '');
-      ctx.createMediaElementSource(el).connect(g);
+    if (this.isStream(id)) {
+      const blob = pre instanceof Blob ? pre : await this.streamBlob(id);
+      const el = this.mediaEl();
+      el._url = URL.createObjectURL(blob);
+      el.src = el._url; el.loop = true; el.currentTime = 0;
+      el._node.connect(g);
       const media = { play: () => el.play().catch(() => { }), pause: () => el.pause() };
-      reg.push({ stop() { el.pause(); URL.revokeObjectURL(url); } });
+      reg.push({ stop: () => this.releaseEl(el) });
       return { gain: g, media };
     }
     const buf = pre || await this.loopBuffer(id);
@@ -203,14 +240,17 @@ export class Engine {
     const P = plan(s);
     const ids = [...new Set(s.phases.flatMap(p => p.mix.map(m => m.sound)))];
     const types = [...new Set(P.gongs.map(g => g.type))];
-    const loadIds = ids.filter(id => !TONE_BUILDERS[id] && !this.isLongUser(id));
+    const loadIds = ids.filter(id => !TONE_BUILDERS[id] && !this.isStream(id));
+    const streamIds = ids.filter(id => this.isStream(id));
     let done = 0;
-    const tick = () => onProgress && onProgress(++done / (loadIds.length + types.length || 1));
+    const tick = () => onProgress && onProgress(++done / (loadIds.length + types.length + streamIds.length || 1));
     this.loading = ids;
     const gbufs = {}, lbufs = {};
     await Promise.all([
       ...loadIds.map(id => this.loopBuffer(id).then(b => { lbufs[id] = b; tick(); })),
       ...types.map(t => this.gongBuffer(t).then(b => { gbufs[t] = b; tick(); })),
+      ...streamIds.map(id => this.streamBlob(id).then(b => { lbufs[id] = b; tick(); })),
+      ...ids.filter(id => TONE_BUILDERS[id]).map(id => prepareTone(id, ctx)),
     ]);
 
     const prep = s.prep || 0, tail = Math.max(3, s.tail ?? 25);

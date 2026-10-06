@@ -1,5 +1,5 @@
 import { Engine, plan } from './engine.js';
-import { NATURE, TONES, GONGS, PHASE_COLORS, USER_ART, USER_GONG_COLOR } from './catalog.js';
+import { NATURE, TONES, MUSIC, GONGS, PHASE_COLORS, USER_ART, USER_GONG_COLOR } from './catalog.js';
 import { LS, userSounds, uid } from './store.js';
 
 const VERSION = '1.0.0';
@@ -34,16 +34,21 @@ const ENSO = `<svg class="enso" viewBox="0 0 100 100"><defs><linearGradient id="
 const G = (type, strikes = 1, vol = 80) => ({ type, strikes, vol });
 const P_ = (name, min, mix, extra = {}) => ({ id: uid('p_'), name, min, trans: 90, mix: mix.map(([sound, vol]) => ({ sound, vol })), ...extra });
 
+// La ronda de siempre, con los ajustes que eligió el usuario
+function ronda22() {
+  return {
+    id: 's_ronda22', name: 'Ronda 22', prep: 5, fadeIn: 25, tail: 30, master: 90,
+    phases: [
+      P_('Relajación', 10, [['bosque', 31], ['pad', 39], ['lluvia-bosque', 32], ['marron', 46]], { trans: 0 }),
+      P_('Meditación', 12, [['bosque', 31], ['pad', 0], ['lluvia-bosque', 0], ['marron', 46]], { trans: 150, gong: G('cuenco', 1, 75) }),
+    ],
+    gongs: { start: G('cuenco', 1, 80), end: G('cuenco', 3, 80), extra: [] },
+  };
+}
+
 function defaultSessions() {
   return [
-    {
-      id: uid('s_'), name: 'Ronda 22', prep: 5, fadeIn: 25, tail: 30, master: 90,
-      phases: [
-        P_('Relajación', 11, [['bosque', 60], ['riachuelo', 38], ['jardin', 45]], { trans: 0 }),
-        P_('Meditación', 11, [['cuencos', 26], ['riachuelo', 14]], { trans: 150, gong: G('cuenco', 1, 75) }),
-      ],
-      gongs: { start: G('cuenco', 1, 80), end: G('cuenco', 3, 80), extra: [] },
-    },
+    ronda22(),
     {
       id: uid('s_'), name: 'Lluvia y silencio', prep: 5, fadeIn: 30, tail: 40, master: 90,
       phases: [
@@ -51,11 +56,6 @@ function defaultSessions() {
         P_('Silencio', 12, [['lluvia-tejado', 28]], { trans: 180, gong: G('rin', 1, 70) }),
       ],
       gongs: { start: G('rin', 2, 75), end: G('rin', 3, 75), extra: [] },
-    },
-    {
-      id: uid('s_'), name: 'Pausa de 10', prep: 3, fadeIn: 15, tail: 25, master: 90,
-      phases: [P_('Meditación', 10, [['olas', 50], ['cristal', 20]], { trans: 0 })],
-      gongs: { start: G('rin', 1, 70), end: G('rin', 3, 75), extra: [{ at: 300, type: 'rin', strikes: 1, vol: 45 }] },
     },
     {
       id: uid('s_'), name: 'Tren nocturno', prep: 5, fadeIn: 30, tail: 35, master: 90,
@@ -94,6 +94,18 @@ const saveSessions = () => LS.set('sessions', state.sessions);
 (function migrate() {
   const ren = { Llegar: 'Relajación', Viaje: 'Relajación', Llegada: 'Meditación', Respirar: 'Meditación' };
   const fixG = g => { if (g && g.type === 'gong') g.type = 'grave'; if (g && g.type === 'koshi') g.type = 'rin'; };
+  if (!LS.get('sinPausa10', false)) {
+    state.sessions = state.sessions.filter(s => s.name !== 'Pausa de 10');
+    LS.set('sinPausa10', true);
+    LS.set('sessions', state.sessions);
+  }
+  if (!LS.get('ronda22v2', false)) {
+    const i = state.sessions.findIndex(s => s.name === 'Ronda 22');
+    if (i >= 0) state.sessions[i] = { ...ronda22(), id: state.sessions[i].id };
+    else state.sessions.unshift(ronda22());
+    LS.set('ronda22v2', true);
+    LS.set('sessions', state.sessions);
+  }
   state.sessions.forEach(s => {
     s.gongs ||= {}; s.gongs.extra ||= [];
     fixG(s.gongs.start); fixG(s.gongs.end); s.gongs.extra.forEach(fixG);
@@ -106,7 +118,7 @@ const saveHistory = () => LS.set('history', state.history);
 const userAmbients = () => state.user.filter(u => u.kind === 'ambient').map(u => ({ id: u.id, name: u.name, desc: `Tuyo · ${fmt(u.duration)}`, art: USER_ART }));
 const userGongs = () => state.user.filter(u => u.kind === 'gong').map(u => ({ id: u.id, name: u.name, color: USER_GONG_COLOR }));
 function soundMeta(id) {
-  return NATURE.find(s => s.id === id) || TONES.find(s => s.id === id) || userAmbients().find(s => s.id === id)
+  return NATURE.find(s => s.id === id) || TONES.find(s => s.id === id) || MUSIC.find(s => s.id === id) || userAmbients().find(s => s.id === id)
     || { id, name: 'Sonido borrado', art: '#333' };
 }
 const gongMeta = t => GONGS.find(g => g.id === t) || userGongs().find(g => g.id === t) || { id: t, name: 'Gong borrado', color: '#666' };
@@ -361,6 +373,7 @@ function openPicker(i) {
   openSheet(`<div class="sheet-h"><h3>Añadir sonido</h3><button class="icon-btn" data-act="sheet-close">${I.close}</button></div>
     <div class="kicker grp">Naturaleza</div>${NATURE.map(item).join('')}
     <div class="kicker grp">Tonos</div>${TONES.map(item).join('')}
+    <div class="kicker grp">Música</div>${MUSIC.map(item).join('')}
     ${ua.length ? `<div class="kicker grp">Mis sonidos</div>${ua.map(item).join('')}` : ''}`);
 }
 
@@ -408,13 +421,14 @@ function viewLib() {
   return `<div class="page-h"><h1>Sonidos</h1><p>Toca para escuchar. Puedes mezclar varios a la vez.</p></div>
     <div class="kicker grp">Naturaleza · grabaciones reales</div><div class="grid">${NATURE.map(tile).join('')}</div>
     <div class="kicker grp" style="margin-top:22px">Tonos de meditación</div><div class="grid">${TONES.map(tile).join('')}</div>
+    <div class="kicker grp" style="margin-top:22px">Música grabada</div><div class="grid">${MUSIC.map(tile).join('')}</div>
     <h2 class="sec">Gongs</h2>
     ${GONGS.map(g => `<div class="urow"><span class="gdot" style="--gc:${g.color};margin:0 10px"></span><div class="grow"><b style="font-weight:600">${g.name}</b></div><button class="icon-btn sm" data-act="lib-gong" data-id="${g.id}">${I.play}</button></div>`).join('')}
     <h2 class="sec">Mis sonidos</h2>
     ${state.user.map(urow).join('') || '<p class="empty-mix">Graba tu cuenco, tu voz o la lluvia de tu ventana, o importa un audio (por ejemplo, la lluvia de 4 horas de YouTube).</p>'}
     <div class="ph-actions" style="margin-top:12px"><button class="btn" data-act="rec-open">${I.mic.replace('<svg', '<svg width="18" height="18"')} Grabar</button><button class="btn" data-act="imp">${I.file.replace('<svg', '<svg width="18" height="18"')} Importar</button></div>
-    <div class="credits">Grabaciones de naturaleza en dominio público (CC0) de Freesound:
-      ${NATURE.map(s => `<a href="https://freesound.org/s/${s.fs}/" target="_blank" rel="noopener">${esc(s.name)}</a>`).join(' · ')}.
+    <div class="credits">Grabaciones de naturaleza y música en dominio público (CC0) de Freesound:
+      ${[...NATURE, ...MUSIC].map(s => `<a href="https://freesound.org/s/${s.fs}/" target="_blank" rel="noopener">${esc(s.name)}</a>`).join(' · ')}.
       Tonos y gongs sintetizados en el propio móvil.</div>
     ${any ? `<button class="btn gold stop-all" data-act="lib-stop">${I.pause.replace('<svg', '<svg width="16" height="16"')} Parar todo</button>` : ''}`;
 }
